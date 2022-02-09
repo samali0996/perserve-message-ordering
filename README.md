@@ -38,28 +38,38 @@ message: {
 - Must use some form of 'message broker' to queue requests and maintain order that requests arrived in.
 - This message broker must implement the Pub/Sub pattern with some extra considerations.
 - Must be able to maintain several identifable queues
-- Must provide capability of selecting which queue line a message is published to it
+- Must provide capability of selecting which queue line a message is published to
 - Must provide capability of assigning queue lines to specific consumers
 
 Design Choce: Use Kafka
-- Kafka maintains the order of requests that are pushed to its topic
+- Kafka maintains the order of requests that are published to its topic
 - allows for publishers and consumers 
 - topics can have identifiable partitions
-- partitions can have assigned consumer IDs such that only one of the multiple consumers subscribed to the topic will consume from that partition
+- partition can have assigned consumer IDs such that only one of the multiple consumers subscribed to the topic will consume from that partition
 
-Design Choice: Requests are grouped by message id and will be pushed to a consistent parition such that all the messages of a specific id can be found in only one queue
 
 - System needs to ensure that requests made of with same id are processed in the order that they arrived
+
+
+Design Choice: Requests are grouped by message id and will be grouped to a single parition in the topic such that all the messages of a specific id can be found in only one partition
+
+
 - Quality requirement of performance requires capability of scaling the system up
 - Quality requirement that related messages must process in order requires running requests grouped by id in sequence and in order
-Design Choice: Can concurrently process requests but identical IDs in queue are forced to run in sequence
 
-Design Choice: Max number of consumers is the number of queue lines in the message broker
+Design Choice: Can concurrently process requests of different ids with multiple consumers
 
+- To ensure that the requests are processing in order, the system needs to ensure that only 1 consumer is subscribed to a partition
+- A consumer will process requests in its topic partition in sequence by oldest one first
 
-Group Ids so that multiple requests made with the same ID are forced to be run in sequence. This is because we will implement a hash function 
+Design Choice: Only 1 consumer can be subscribed to each topic 
 
-Allow parallel processing by having 1 to number of p
+Design Choice: Max number of consumers is the number of partitions available in kafka
+
+Design Choice: A consumer can have multiple assigned partitions
+
+Design Choice: Partitions can have many publishers assigned to them
+
 ## Software Architecture
 ### Overall system
 
