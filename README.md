@@ -35,40 +35,49 @@ message: {
 ```
 
 ## Design choices & considerations
+
+### Design Choce: Use Kafka
 - Must use some form of 'message broker' to queue requests and maintain order that requests arrived in.
 - This message broker must implement the Pub/Sub pattern with some extra considerations.
 - Must be able to maintain several identifable queues
 - Must provide capability of selecting which queue line a message is published to
 - Must provide capability of assigning queue lines to specific consumers
-
-Design Choce: Use Kafka
 - Kafka maintains the order of requests that are published to its topic
 - allows for publishers and consumers 
-- topics can have identifiable partitions
-- partition can have assigned consumer IDs such that only one of the multiple consumers subscribed to the topic will consume from that partition
+- topics can have identifiable partitions (queue lines)
+- partition can have assigned consumer IDs such that only one of a multiple of consumers subscribed to the topic will consume from that partition
 
 
+### Design Choice: Requests are grouped by message id and published to a consistent parition in the topic such that all the messages of a specific id can be found in only one partition
 - System needs to ensure that requests made of with same id are processed in the order that they arrived
 
-
-Design Choice: Requests are grouped by message id and will be grouped to a single parition in the topic such that all the messages of a specific id can be found in only one partition
-
-
+### Design Choice: Can concurrently process requests of different ids with multiple consumers but same ids must run in sequence
 - Quality requirement of performance requires capability of scaling the system up
-- Quality requirement that related messages must process in order requires running requests grouped by id in sequence and in order
+- Quality requirement that related messages must process in order requires running those in sequence and in order
 
-Design Choice: Can concurrently process requests of different ids with multiple consumers
-
+### Design Choice: Only 1 consumer can be subscribed to a partition
 - To ensure that the requests are processing in order, the system needs to ensure that only 1 consumer is subscribed to a partition
 - A consumer will process requests in its topic partition in sequence by oldest one first
+- This ensures that no related messages are processed concurrently and eliminates chance of newer messags being overwritten by older ones
 
-Design Choice: Only 1 consumer can be subscribed to each topic 
+
 
 Design Choice: Max number of consumers is the number of partitions available in kafka
 
 Design Choice: A consumer can have multiple assigned partitions
 
 Design Choice: Partitions can have many publishers assigned to them
+
+
+### Design Choice: System infrastructure will be set up within a cloud environment
+- Kubernetes to handle deployments, restart failing pods, update system,
+- secrets store
+- handle 
+- Using a cloud service (AWS, IBM Cloud, etc)
+- CI/CD pipeline
+- Services available(Kafka, databases)
+
+
 
 ## Software Architecture
 ### Overall system
@@ -114,24 +123,10 @@ By enforcing this id / partition grouping, we allow our system to perserve the o
 
 ### Database
 
-### Infrastructure
-Kubernetes to handle deployments, restart failing pods, update system,
-Can use cloud technology
-- secrets store
-- handle 
-
-### CI/CD
-
 ## Userflows 
 ### User adds message
 ### User updates message
 ### Two users 'upsert' same ID
-
-
-#### Infrastructure choices  
-Using a cloud service (AWS, IBM Cloud, etc)
-## Tradeoffs
-Added complexity
 
 ## Edge case considerations
 
