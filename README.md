@@ -81,7 +81,7 @@ Design Choice: Partitions can have many publishers assigned to them
 
 ## Software Architecture
 ### Overall system
-
+[](overall_design.pdf)
 ## Subsystem designs
 ### Event stream (Kafka)
 - kafka can have 1 or more partitions on the `upsert` topic
