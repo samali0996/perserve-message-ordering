@@ -192,5 +192,8 @@ If a message fails to be processed (inserted / updated the db), we can have a ce
 ### Timestamping
 - While timestamping can help enforce ordering, often times different systems may have inconsistent times
 - Our design does not depend on accurate timestamping, kafka (message broker) will act as the agent enforcing request queueing / maintaining order of requests made
-
+### We can ignore processing older requests if there are newer ones in the queue
+- This will help us save time by not procesing unecessary requests (since they will be overwritten anyways)
+- But with the use of partial updates, it'll be complicated to determine if a newer request is necessarily overwriting the content of an older request, or if they are both adding new information to the db
+- Want to keep our system as simple and consistent as possible
 
