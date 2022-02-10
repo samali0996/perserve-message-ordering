@@ -51,15 +51,17 @@ message: {
 ### Design Choice: Requests are grouped by message id and published to a consistent parition in the topic such that all the messages of a specific id can be found in only one partition
 - System needs to ensure that requests made with same id are processed in the order that they arrived
 
-### Design Choice: Can concurrently process requests of different ids with multiple consumers but same ids must run in sequence
+### Design Choice: Requests in different partitions can be concurrently processed. 
+- Since it is gaurenteed that each partition has a unique set of ids in it from other partitions, it is safe to process requests in different partitions concurrently. (You would only find requests with id 1 in one partition, id 2 in another, etc.)
+- Each partition will have a single consumer processing the requests in sequence, but can have multiple instances of partition/consumer pairs running concurrently.
 - Quality requirement of performance requires capability of scaling the system up
-- Quality requirement that related messages must process in order requires running those in sequence and in order
+
+### Design Choice: A consumer will process requests from a partition sequentially
 
 ### Design Choice: Only 1 consumer can be subscribed to a partition
 - To ensure that the requests are processing in order, the system needs to ensure that only 1 consumer is subscribed to a partition
 - A consumer will process requests in its topic partition in sequence by oldest one first
 - This ensures that no related messages are processed concurrently and eliminates chance of newer messags being overwritten by older ones
-
 
 
 ### Design Choice: Max number of consumers is the number of partitions available in kafka
