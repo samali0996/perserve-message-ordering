@@ -85,7 +85,7 @@ message: {
 ## Software Architecture
 ### Overall system
 ![overall_design](/overall_design.png)
-1. Clients connect to Kafka instance, publish requests in topic. A hash_id is generated to ensure same message ids will have a conistent partition id as its destination.
+1. Clients connect to Kafka instance, publish requests in topic. A hash_id is generated to ensure same message ids will have the same partition id as its destination.
 2. Subscriber assigned to the partition will read in requets sequentiallty
 3. Can handle multiple consumers (<= number of partitions available) that will run concurrently
 4. On successful processing of request (updating db), consumer can update kafka record and move onto the next request in the partition queue
