@@ -15,7 +15,7 @@ System needs to have scalability capabilities (support multi-thread/multi-server
 
 ### Quality requirements
 - Message order integrity needs to be perserved (older messages cannot overwrite newer ones)
-- System must be scalable to handle concurrent requests (must not violate message order)
+- System must be scalable to handle processing requests concurrently (must not violate message order)
 - System downtime should be minimized / should not disturb message order
 - Messages that 'fail' must be handled (don't overwrite newer messages)
 - Logging capabilities to track down events and identify issuess
@@ -70,7 +70,7 @@ message: {
 - A partition can have only one consumer listening to it, but a consumer can listen to multiple partitions, since the ordering and sequential processing of the requests of the same ID is maintained.
 
 ### Design Choice: Partitions can have many publishers assigned to them
-- Many publishers can publish to the topic in the appropriate parition, the requests will be processed in the order they arrive into the topic
+- Many publishers can publish to the topic in the appropriate parition, the requests will be processed in the order they arrive into the topic partition
 
 ### Design Choice: System infrastructure will be set up within a cloud environment
 - Set up system using a cloud service platform (AWS, IBM Cloud, etc) 
@@ -83,29 +83,29 @@ message: {
 ## Software Architecture
 ### Overall system
 ![overall_design](/overall_design.png)
-1. Clients connect to Kafka instance, publish requests in topic. A hash_id is generated to ensure conistent partition destination is for the same message id.
+1. Clients connect to Kafka instance, publish requests in topic. A hash_id is generated to ensure same message ids will have a conistent partition id as its destination.
 2. Subscriber assigned to the partition will read in requets sequentiallty
 3. Can handle multiple consumers (<= number of partitions available) that will run concurrently
-4. On successful processing of request (updating db), consumer can update kafka record and move onto the next request in the queue
+4. On successful processing of request (updating db), consumer can update kafka record and move onto the next request in the partition queue
 
 ## Subsystem designs
 ### Event stream (Kafka)
 ![kafka_design](/kafka-design.png)
 - kafka can have 1 or more partitions on the `upsert` topic
 - This will allow us to run our system concurrently with multiple consumers while still enforcing message order
-- `upsert` topic can have 1 to many publishers, but number of consumers are enforced to at most the number of partitions available (because two consumers cannot work on the same partition and enforce order. This limitation ensurs message order consitency)
+- `upsert` topic can have many publishers, but number of consumers are enforced to at most the number of partitions available (because two consumers cannot work on the same partition and enforce order. This limitation ensurs message order consitency)
 ### Publisher (Client subsystem)
 - Will publish client requests (such as `upsert`) to the kafka topic
-- Will perform hashing function to group ids so that it can publish topic to consistent partitions
-- To know which partition the message should be created to, perform some form of hashing function on the id.
+- Will perform hashing function on message ids so that it can publish message to consistent partitions
+- To know which partition the message should be published to, perform some form of hashing function on the id.
 
- `id % number_of_active_partitions = partition_number`
+ `id % number_of_partitions = partition_id`
  
 This will identify to the client which partition in the topic it should publish the record to.
 
 Example
 
-A request is made by the client
+A request is made by the client. The client will run this method to determine which partition in the kafka topic to publush the message to:
 ```
 function identifyPartitionID(message, number_of_partitions){
     return message.id % number_of_partitions
@@ -119,7 +119,8 @@ number_of_partitions = 3
 partition_id = 30 % 3 = 0
 ```
 
-By enforcing this id / partition grouping, we allow our system to perserve the order of messages. Since same IDs will be put in one partition and will run sequentially, multiple consumer/partition pairs will run this process concurrently
+By enforcing this id / partition grouping, we allow our system to perserve the order of messages. Since same IDs will be put in one partition and will be processed by at most 1 consumer sequentially.
+Multiple consumer/partition pairs will run this sequential process concurrently
 
 ### Consumer (Backend subsystem)
 ![backend-design](/backend-design.png)
@@ -128,7 +129,7 @@ By enforcing this id / partition grouping, we allow our system to perserve the o
 - A consumer can listen to multiple partitions and ensure order integrity. This will allow the system to continue to function if
     1. A consumer dies and a living one has to take it's place
     1. Can run the entire system sequentially (1 consumer) or concurrently (multiple consumers) without needing to modify partitions
-- consumers can run concurrently without fear of overwriting messages
+- consumers can process requests in a partition in a concurrent fashion without fear of overwriting messages
 
 ### Database
 ![db_design](/db_design.png)
@@ -140,7 +141,7 @@ By enforcing this id / partition grouping, we allow our system to perserve the o
 Depending on the user requirements, we might want to seperate the insert and update functionalities, what if the user wanted to only update with no intention to create, or vice versa?
 
 ### What if we want to shut down the system?
-We can still receive flow of requests by having a backup / fallover kafka topic. This will enable shutting down main kafka topic for partition / other updates, and still recieve requests/maintain the order. When system is coming back online make sure to migrate backup topic requests into main topic
+We can still receive flow of requests by having a backup / fallover kafka topic. This will enable shutting down main kafka topic for partition / other updates, and still recieve requests/maintain the order. When system is coming back online make sure to migrate backup topic requests into main topic using message id hashing function
 
 ### What if a subscriber dies? In the middle of processing the request?
 If a `subscriber x `dies, allow another `subscriber y` to take its place, ie becoming subscribed to that partition. When `subscriber x` is added back, ensure that `subsriber y` stops taking new requests from target partition, process any remaining requests, and then rebalance partition / consumer grouping. Only remove a request from the kafka record after it has been fully processed, if dies in the middle of processing, the request will simply be reprocessed from the beginning
@@ -152,7 +153,7 @@ A limitation of this system is that number of subscribers cannot exceed number o
 If we want to decrease # of subscribers, we will need the system to 'rebalance' partition/consumer grouping such that another consumer will be subscribed to that partition
 
 ### What if message processing fails?
-If a message fails to be processed (inserted / updated the db), we can have a certain amount of retry rates, we can log the failure, and we can eventually disregard the message so the consumer does not hang on 1 message
+If a message fails to be processed (inserted / updated the db), we can have a certain amount of retry rates, since the record is still in the kafka topic. we can log the failure, and we can eventually disregard the message so the consumer does not hang on 1 message after x number of retries
 
 ### What if timestamps are unreliable?
 - Can store them at the consumer level, so that our control over the environment can guarentee time stamp consistency
