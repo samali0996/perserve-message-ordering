@@ -179,6 +179,9 @@ If a message fails to be processed (inserted / updated the db), we can have a ce
 
 ## Alternatives considered
 ### Having multiple consumers somehow split processing requests for the same id
+- For example, if multiple requests of the same ID exist in the queue, but each request is partial and does not conflict with the other requests, we can process them concurrently
+- However this will complicate the distribution of requests to consumers, since the system must then enforce that only nonconflicting requests of the same id can process concurrently
+- Will also force us to violate the 1 consumer per partition design choice we made, which allows for simplicity of the system
 - Although this will increase the efficiency of our system, especially if requests being made heavily favour a specific id (which means those requests would have to run sequentially), we just cannot gaurentee order enforcement anymore, since a concurrently running consumer may finish a newer request before others
 - Given the use cases of this system however I think that there will be a fair amount of distribution in terms of request ids made.
 
