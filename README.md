@@ -36,7 +36,7 @@ message: {
 
 ## Design choices & considerations
 
-### Design Choce: Use Kafka
+### Design Choice: Use Kafka
 - Must use some form of 'message broker' to queue requests and maintain order that requests arrived in.
 - This message broker must implement the Pub/Sub pattern with some extra considerations.
 - Must be able to maintain several identifable queues
@@ -133,10 +133,6 @@ By enforcing this id / partition grouping, we allow our system to perserve the o
 ### Database
 ![db_design](/db_design.png)
 - Will contain a single table `Messages` with fields `id`, `data`, `enabled`, etc
-## Userflows 
-### User adds message
-### User updates message
-### Two users 'upsert' same ID
 
 ## Edge case considerations
 
@@ -152,34 +148,46 @@ If a `subscriber x `dies, allow another `subscriber y` to take its place, ie bec
 ### What if we want to increase # of subscribers?
 A limitation of this system is that number of subscribers cannot exceed number of partitions, if `subscriber_count` < `partition_count`, spin up a new consumer, and redelegate consumer partition grouping (make sure consumer record consumption is paused). If need to increase number of partitions to increase consumers, activate backup kafka topic to keep backlog of requests, run updates, migrate backup requests into new kafka topic/partitions, then resume processing
 
-What if we want to decrease # of subscribers?
+### What if we want to decrease # of subscribers?
+If we want to decrease # of subscribers, we will need the system to 'rebalance' partition/consumer grouping such that another consumer will be subscribed to that partition
 
-What if message processing fails?
+### What if message processing fails?
+If a message fails to be processed (inserted / updated the db), we can have a certain amount of retry rates, we can log the failure, and we can eventually disregard the message so the consumer does not hang on 1 message
 
-What if timestamps are unreliable?
-- Can store them at the subscriber level, so that our control over the environment can guarentee 
-- Timestamp is not necessary for the integrity of order. Our message broker system (Kafka) will enforce order integrity of same ID requests
+### What if timestamps are unreliable?
+- Can store them at the consumer level, so that our control over the environment can guarentee time stamp consistency
+- Timestamp is not necessary for the integrity of order of this system. Our message broker system (Kafka) will enforce order integrity of same ID requests
 
-What if messages coming in have partial updates?
+### What if messages coming in have partial updates?
 - Treat them how you would with any other valid message (enforce sequence and process) Simpler
 
-What if multiple messages with same ID are identical?
+### What if multiple messages with same ID are identical?
 - treat them how you would with any other valid message. Simpler
 - To save time and ignore unnecessary db updates, filter message data with stored data so that only changes to new values are made. Efficiency
 
-IDs with all empty fields?
+### IDs with all empty fields?
 - only process fields that are valid (not empty, valid value)
 - if empty ignore
 
-Invalid message recieved/sent?
+### Invalid message recieved/sent?
 - only process fields that are valid (not empty, valid value)
 - if empty ignore, if fail validation, client errors out before sending
 - if publisher, validate messages recieved, invalidated messages are logged and discarded
 
 ## Alternatives considered
-- Having multiple consumers somehow split work from the same id
-- Deleting requests that are identical
-- Combining partial requests together to form full ones if can
-- Timestamping
+### Having multiple consumers somehow split processing requests for the same id
+- Although this will increase the efficiency of our system, especially if requests being made heavily favour a specific id (which means those requests would have to run sequentially), we just cannot gaurentee order enforcement anymore, since a concurrently running consumer may finish a newer request before others
+- Given the use cases of this system however I think that there will be a fair amount of distribution in terms of request ids made.
+
+### Deleting requests that are identical
+- We could check other requests in the partition that match the one the consumer is currently looking at, decreasing processing time for unecessary actions, however this presents additional complexity to our system that does not pay off in terms of performance
+- additionally we can check identical fields when performing the db update, and filter them out
+
+### Combining partial requests together to form full ones if can
+- To make fewer db calls, we can combine partial requests together if the fields do not conflict with one another, however this increases the complexity of our system
+- can just treat these requests as normal, complete ones
+### Timestamping
+- While timestamping can help enforce ordering, often times different systems may have inconsistent times
+- Our design does not depend on accurate timestamping, kafka (message broker) will act as the agent enforcing request queueing / maintaining order of requests made
 
 
