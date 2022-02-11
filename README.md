@@ -84,7 +84,7 @@ message: {
 
 ## Software Architecture
 ### Overall system
-![overall_design](/overall_design.png)
+![overall_design](/assets/overall_design.png)
 1. Clients connect to Kafka instance, publish requests in topic. A hash_id is generated to ensure same message ids will have the same partition id as its destination.
 2. Subscriber assigned to the partition will read in requets sequentiallty
 3. Can handle multiple consumers (<= number of partitions available) that will run concurrently
@@ -92,7 +92,7 @@ message: {
 
 ## Subsystem designs
 ### Event stream (Kafka)
-![kafka_design](/kafka-design.png)
+![kafka_design](/assets/kafka-design.png)
 - kafka can have 1 or more partitions on the `upsert` topic
 - This will allow us to run our system concurrently with multiple consumers while still enforcing message order
 - `upsert` topic can have many publishers, but number of consumers are enforced to at most the number of partitions available (because two consumers cannot work on the same partition and enforce order. This limitation ensurs message order consitency)
@@ -125,7 +125,7 @@ By enforcing this id / partition grouping, we allow our system to perserve the o
 Multiple consumer/partition pairs will run this sequential process concurrently
 
 ### Consumer (Backend subsystem)
-![backend-design](/backend-design.png)
+![backend-design](/assets/backend-design.png)
 - Each partition will have at most 1 consumer subscribed to it. This will ensure that all requests of the same id is handled by only one consumer.
 - Consumer will sequentially process the requests found in the partition queue by oldest first.
 - A consumer can listen to multiple partitions and ensure order integrity. This will allow the system to continue to function if
@@ -134,7 +134,7 @@ Multiple consumer/partition pairs will run this sequential process concurrently
 - consumers can process requests in a partition in a concurrent fashion without fear of overwriting messages
 
 ### Database
-![db_design](/db_design.png)
+![db_design](/assets/db_design.png)
 - Will contain a single table `Messages` with fields `id`, `data`, `enabled`, etc
 
 ## Edge case considerations
