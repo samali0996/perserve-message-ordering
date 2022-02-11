@@ -1,0 +1,19 @@
+If same id do one at a time, otherwise can do concurrently
+Only remove after successful implementation
+Can explain the same Id concurrency rule as a way to make things more efficient introduce multiple instances
+
+When do we need to worry about race conditions?
+When more than one action relates to same id
+Can also separate endpoints so that if user tries to create with existing id he gets error that already exists
+
+Relate it to user intent this can be related to user requirements
+What is partial update? - explain what u think it means
+Might be over engineering but can we “combine partial updates?”
+Talk about pro con of treating partial update as normal (slower, simpler)
+What if two req are the exact same?
+What if one req fails to process?
+Assume at what point a req is officially “made”
+What if a req is incorrect?
+Enforce time stamp at time req enters system
+Mention that scaling is a requirement
+
